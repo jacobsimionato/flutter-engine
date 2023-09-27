@@ -78,7 +78,7 @@ bool FramebufferBlendContents::Render(const ContentContext& renderer,
   options.blend_mode = BlendMode::kSource;
 
   Command cmd;
-  cmd.label = "Framebuffer Advanced Blend Filter";
+  DEBUG_COMMAND_INFO(cmd, "Framebuffer Advanced Blend Filter");
   cmd.BindVertices(vtx_buffer);
   cmd.stencil_reference = entity.GetStencilDepth();
 
@@ -136,7 +136,7 @@ bool FramebufferBlendContents::Render(const ContentContext& renderer,
   FS::FragInfo frag_info;
 
   auto src_sampler_descriptor = src_snapshot->sampler_descriptor;
-  if (!renderer.GetDeviceCapabilities().SupportsDecalTileMode()) {
+  if (!renderer.GetDeviceCapabilities().SupportsDecalSamplerAddressMode()) {
     // No known devices that support framebuffer fetch but not decal tile mode.
     return false;
   }
@@ -147,14 +147,15 @@ bool FramebufferBlendContents::Render(const ContentContext& renderer,
   FS::BindTextureSamplerSrc(cmd, src_snapshot->texture, src_sampler);
 
   frame_info.mvp = Matrix::MakeOrthographic(pass.GetRenderTargetSize()) *
-                   src_snapshot->transform;
+                   entity.GetTransformation() *
+                   Matrix::MakeTranslation(src_coverage.origin);
   frame_info.src_y_coord_scale = src_snapshot->texture->GetYCoordScale();
   VS::BindFrameInfo(cmd, host_buffer.EmplaceUniform(frame_info));
 
   frag_info.src_input_alpha = src_snapshot->opacity;
   FS::BindFragInfo(cmd, host_buffer.EmplaceUniform(frag_info));
 
-  return pass.AddCommand(cmd);
+  return pass.AddCommand(std::move(cmd));
 }
 
 }  // namespace impeller

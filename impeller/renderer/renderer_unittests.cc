@@ -58,6 +58,7 @@ TEST_P(RendererTest, CanCreateBoxPrimitive) {
   auto desc = BoxPipelineBuilder::MakeDefaultPipelineDescriptor(*context);
   ASSERT_TRUE(desc.has_value());
   desc->SetSampleCount(SampleCount::kCount4);
+  desc->SetStencilAttachmentDescriptors(std::nullopt);
 
   // Vertex buffer.
   VertexBufferBuilder<VS::PerVertexData> vertex_builder;
@@ -91,7 +92,7 @@ TEST_P(RendererTest, CanCreateBoxPrimitive) {
     assert(pipeline && pipeline->IsValid());
 
     Command cmd;
-    cmd.label = "Box";
+    DEBUG_COMMAND_INFO(cmd, "Box");
     cmd.pipeline = pipeline;
 
     cmd.BindVertices(vertex_buffer);
@@ -130,6 +131,7 @@ TEST_P(RendererTest, CanRenderPerspectiveCube) {
   desc->SetCullMode(CullMode::kBackFace);
   desc->SetWindingOrder(WindingOrder::kCounterClockwise);
   desc->SetSampleCount(SampleCount::kCount4);
+  desc->SetStencilAttachmentDescriptors(std::nullopt);
   auto pipeline =
       context->GetPipelineLibrary()->GetPipeline(std::move(desc)).Get();
   ASSERT_TRUE(pipeline);
@@ -185,7 +187,7 @@ TEST_P(RendererTest, CanRenderPerspectiveCube) {
     ImGui::End();
 
     Command cmd;
-    cmd.label = "Perspective Cube";
+    DEBUG_COMMAND_INFO(cmd, "Perspective Cube");
     cmd.pipeline = pipeline;
 
     cmd.BindVertices(vertex_buffer);
@@ -219,6 +221,7 @@ TEST_P(RendererTest, CanRenderMultiplePrimitives) {
   auto desc = BoxPipelineBuilder::MakeDefaultPipelineDescriptor(*context);
   ASSERT_TRUE(desc.has_value());
   desc->SetSampleCount(SampleCount::kCount4);
+  desc->SetStencilAttachmentDescriptors(std::nullopt);
   auto box_pipeline =
       context->GetPipelineLibrary()->GetPipeline(std::move(desc)).Get();
   ASSERT_TRUE(box_pipeline);
@@ -246,7 +249,7 @@ TEST_P(RendererTest, CanRenderMultiplePrimitives) {
 
   SinglePassCallback callback = [&](RenderPass& pass) {
     Command cmd;
-    cmd.label = "Box";
+    DEBUG_COMMAND_INFO(cmd, "Box");
     cmd.pipeline = box_pipeline;
 
     cmd.BindVertices(vertex_buffer);
@@ -270,7 +273,7 @@ TEST_P(RendererTest, CanRenderMultiplePrimitives) {
                        Matrix::MakeTranslation({i * 50.0f, j * 50.0f, 0.0f});
         VS::BindUniformBuffer(
             cmd, pass.GetTransientsBuffer().EmplaceUniform(uniforms));
-        if (!pass.AddCommand(cmd)) {
+        if (!pass.AddCommand(std::move(cmd))) {
           return false;
         }
       }
@@ -360,7 +363,7 @@ TEST_P(RendererTest, CanRenderToTexture) {
   }
 
   Command cmd;
-  cmd.label = "Box";
+  DEBUG_COMMAND_INFO(cmd, "Box");
   cmd.pipeline = box_pipeline;
 
   cmd.BindVertices(vertex_buffer);
@@ -420,13 +423,15 @@ TEST_P(RendererTest, CanRenderInstanced) {
           ->GetPipelineLibrary()
           ->GetPipeline(PipelineBuilder<VS, FS>::MakeDefaultPipelineDescriptor(
                             *GetContext())
-                            ->SetSampleCount(SampleCount::kCount4))
+                            ->SetSampleCount(SampleCount::kCount4)
+                            .SetStencilAttachmentDescriptors(std::nullopt))
+
           .Get();
   ASSERT_TRUE(pipeline && pipeline->IsValid());
 
   Command cmd;
   cmd.pipeline = pipeline;
-  cmd.label = "InstancedDraw";
+  DEBUG_COMMAND_INFO(cmd, "InstancedDraw");
 
   static constexpr size_t kInstancesCount = 5u;
   VS::InstanceInfo<kInstancesCount> instances;
@@ -445,7 +450,7 @@ TEST_P(RendererTest, CanRenderInstanced) {
     cmd.BindVertices(builder.CreateVertexBuffer(pass.GetTransientsBuffer()));
 
     cmd.instance_count = kInstancesCount;
-    pass.AddCommand(cmd);
+    pass.AddCommand(std::move(cmd));
     return true;
   }));
 }
@@ -459,6 +464,7 @@ TEST_P(RendererTest, CanBlitTextureToTexture) {
   auto desc = PipelineBuilder<VS, FS>::MakeDefaultPipelineDescriptor(*context);
   ASSERT_TRUE(desc.has_value());
   desc->SetSampleCount(SampleCount::kCount4);
+  desc->SetStencilAttachmentDescriptors(std::nullopt);
   auto mipmaps_pipeline =
       context->GetPipelineLibrary()->GetPipeline(std::move(desc)).Get();
   ASSERT_TRUE(mipmaps_pipeline);
@@ -530,7 +536,7 @@ TEST_P(RendererTest, CanBlitTextureToTexture) {
       pass->SetLabel("Playground Render Pass");
       {
         Command cmd;
-        cmd.label = "Image";
+        DEBUG_COMMAND_INFO(cmd, "Image");
         cmd.pipeline = mipmaps_pipeline;
 
         cmd.BindVertices(vertex_buffer);
@@ -571,6 +577,7 @@ TEST_P(RendererTest, CanBlitTextureToBuffer) {
   auto desc = PipelineBuilder<VS, FS>::MakeDefaultPipelineDescriptor(*context);
   ASSERT_TRUE(desc.has_value());
   desc->SetSampleCount(SampleCount::kCount4);
+  desc->SetStencilAttachmentDescriptors(std::nullopt);
   auto mipmaps_pipeline =
       context->GetPipelineLibrary()->GetPipeline(std::move(desc)).Get();
   ASSERT_TRUE(mipmaps_pipeline);
@@ -654,7 +661,7 @@ TEST_P(RendererTest, CanBlitTextureToBuffer) {
       pass->SetLabel("Playground Render Pass");
       {
         Command cmd;
-        cmd.label = "Image";
+        DEBUG_COMMAND_INFO(cmd, "Image");
         cmd.pipeline = mipmaps_pipeline;
 
         cmd.BindVertices(vertex_buffer);
@@ -702,6 +709,7 @@ TEST_P(RendererTest, CanGenerateMipmaps) {
   auto desc = PipelineBuilder<VS, FS>::MakeDefaultPipelineDescriptor(*context);
   ASSERT_TRUE(desc.has_value());
   desc->SetSampleCount(SampleCount::kCount4);
+  desc->SetStencilAttachmentDescriptors(std::nullopt);
   auto mipmaps_pipeline =
       context->GetPipelineLibrary()->GetPipeline(std::move(desc)).Get();
   ASSERT_TRUE(mipmaps_pipeline);
@@ -774,7 +782,7 @@ TEST_P(RendererTest, CanGenerateMipmaps) {
       pass->SetLabel("Playground Render Pass");
       {
         Command cmd;
-        cmd.label = "Image LOD";
+        DEBUG_COMMAND_INFO(cmd, "Image LOD");
         cmd.pipeline = mipmaps_pipeline;
 
         cmd.BindVertices(vertex_buffer);
@@ -818,6 +826,7 @@ TEST_P(RendererTest, TheImpeller) {
       PipelineBuilder<VS, FS>::MakeDefaultPipelineDescriptor(*context);
   ASSERT_TRUE(pipeline_descriptor.has_value());
   pipeline_descriptor->SetSampleCount(SampleCount::kCount4);
+  pipeline_descriptor->SetStencilAttachmentDescriptors(std::nullopt);
   auto pipeline =
       context->GetPipelineLibrary()->GetPipeline(pipeline_descriptor).Get();
   ASSERT_TRUE(pipeline && pipeline->IsValid());
@@ -840,7 +849,7 @@ TEST_P(RendererTest, TheImpeller) {
 
     Command cmd;
     cmd.pipeline = pipeline;
-    cmd.label = "Impeller SDF scene";
+    DEBUG_COMMAND_INFO(cmd, "Impeller SDF scene");
     VertexBufferBuilder<VS::PerVertexData> builder;
     builder.AddVertices({{Point()},
                          {Point(0, size.height)},
@@ -863,7 +872,7 @@ TEST_P(RendererTest, TheImpeller) {
     FS::BindBlueNoise(cmd, blue_noise, noise_sampler);
     FS::BindCubeMap(cmd, cube_map, cube_map_sampler);
 
-    pass.AddCommand(cmd);
+    pass.AddCommand(std::move(cmd));
     return true;
   };
   OpenPlaygroundHere(callback);
@@ -878,6 +887,7 @@ TEST_P(RendererTest, ArrayUniforms) {
       PipelineBuilder<VS, FS>::MakeDefaultPipelineDescriptor(*context);
   ASSERT_TRUE(pipeline_descriptor.has_value());
   pipeline_descriptor->SetSampleCount(SampleCount::kCount4);
+  pipeline_descriptor->SetStencilAttachmentDescriptors(std::nullopt);
   auto pipeline =
       context->GetPipelineLibrary()->GetPipeline(pipeline_descriptor).Get();
   ASSERT_TRUE(pipeline && pipeline->IsValid());
@@ -887,7 +897,7 @@ TEST_P(RendererTest, ArrayUniforms) {
 
     Command cmd;
     cmd.pipeline = pipeline;
-    cmd.label = "Google Dots";
+    DEBUG_COMMAND_INFO(cmd, "Google Dots");
     VertexBufferBuilder<VS::PerVertexData> builder;
     builder.AddVertices({{Point()},
                          {Point(0, size.height)},
@@ -919,7 +929,7 @@ TEST_P(RendererTest, ArrayUniforms) {
     FS::BindFragInfo(cmd,
                      pass.GetTransientsBuffer().EmplaceUniform(fs_uniform));
 
-    pass.AddCommand(cmd);
+    pass.AddCommand(std::move(cmd));
     return true;
   };
   OpenPlaygroundHere(callback);
@@ -934,6 +944,7 @@ TEST_P(RendererTest, InactiveUniforms) {
       PipelineBuilder<VS, FS>::MakeDefaultPipelineDescriptor(*context);
   ASSERT_TRUE(pipeline_descriptor.has_value());
   pipeline_descriptor->SetSampleCount(SampleCount::kCount4);
+  pipeline_descriptor->SetStencilAttachmentDescriptors(std::nullopt);
   auto pipeline =
       context->GetPipelineLibrary()->GetPipeline(pipeline_descriptor).Get();
   ASSERT_TRUE(pipeline && pipeline->IsValid());
@@ -943,7 +954,7 @@ TEST_P(RendererTest, InactiveUniforms) {
 
     Command cmd;
     cmd.pipeline = pipeline;
-    cmd.label = "Inactive Uniform";
+    DEBUG_COMMAND_INFO(cmd, "Inactive Uniform");
     VertexBufferBuilder<VS::PerVertexData> builder;
     builder.AddVertices({{Point()},
                          {Point(0, size.height)},
@@ -964,7 +975,7 @@ TEST_P(RendererTest, InactiveUniforms) {
     FS::BindFragInfo(cmd,
                      pass.GetTransientsBuffer().EmplaceUniform(fs_uniform));
 
-    pass.AddCommand(cmd);
+    pass.AddCommand(std::move(cmd));
     return true;
   };
   OpenPlaygroundHere(callback);
@@ -1120,6 +1131,7 @@ TEST_P(RendererTest, StencilMask) {
   ASSERT_TRUE(vertex_buffer);
 
   desc->SetSampleCount(SampleCount::kCount4);
+  desc->SetStencilAttachmentDescriptors(std::nullopt);
 
   auto bridge = CreateTextureForFixture("bay_bridge.jpg");
   auto boston = CreateTextureForFixture("boston.jpg");
@@ -1149,7 +1161,9 @@ TEST_P(RendererTest, StencilMask) {
       stencil_config.load_action = LoadAction::kLoad;
       stencil_config.store_action = StoreAction::kDontCare;
       stencil_config.storage_mode = StorageMode::kHostVisible;
-      render_target.SetupStencilAttachment(*context,
+      auto render_target_allocator =
+          RenderTargetAllocator(context->GetResourceAllocator());
+      render_target.SetupStencilAttachment(*context, render_target_allocator,
                                            render_target.GetRenderTargetSize(),
                                            true, "stencil", stencil_config);
       // Fill the stencil buffer with an checkerboard pattern.
@@ -1205,7 +1219,7 @@ TEST_P(RendererTest, StencilMask) {
       assert(pipeline && pipeline->IsValid());
 
       Command cmd;
-      cmd.label = "Box";
+      DEBUG_COMMAND_INFO(cmd, "Box");
       cmd.pipeline = pipeline;
       cmd.stencil_reference = stencil_reference_read;
 

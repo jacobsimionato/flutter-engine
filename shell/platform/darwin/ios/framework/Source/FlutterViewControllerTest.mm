@@ -16,10 +16,13 @@
 #import "flutter/shell/platform/darwin/ios/framework/Source/FlutterFakeKeyEvents.h"
 #import "flutter/shell/platform/darwin/ios/framework/Source/FlutterTextInputPlugin.h"
 #import "flutter/shell/platform/darwin/ios/framework/Source/FlutterViewController_Internal.h"
+#import "flutter/shell/platform/darwin/ios/framework/Source/UIViewController+FlutterScreenAndSceneIfLoaded.h"
 #import "flutter/shell/platform/embedder/embedder.h"
 #import "flutter/third_party/spring_animation/spring_animation.h"
 
 FLUTTER_ASSERT_ARC
+
+using namespace flutter::testing;
 
 @interface FlutterEngine ()
 - (FlutterTextInputPlugin*)textInputPlugin;
@@ -56,8 +59,9 @@ FLUTTER_ASSERT_ARC
 - (void)sendKeyEvent:(const FlutterKeyEvent&)event
             callback:(FlutterKeyEventCallback)callback
             userData:(void*)userData API_AVAILABLE(ios(9.0)) {
-  if (callback == nil)
+  if (callback == nil) {
     return;
+  }
   // NSAssert(callback != nullptr, @"Invalid callback");
   // Response is async, so we have to post it to the run loop instead of calling
   // it directly.
@@ -129,7 +133,6 @@ extern NSNotificationName const FlutterViewControllerWillDealloc;
 - (void)onUserSettingsChanged:(NSNotification*)notification;
 - (void)applicationWillTerminate:(NSNotification*)notification;
 - (void)goToApplicationLifecycle:(nonnull NSString*)state;
-- (UIScreen*)screenIfViewLoaded;
 - (void)handleKeyboardNotification:(NSNotification*)notification;
 - (CGFloat)calculateKeyboardInset:(CGRect)keyboardFrame keyboardMode:(int)keyboardMode;
 - (BOOL)shouldIgnoreKeyboardNotification:(NSNotification*)notification;
@@ -199,7 +202,7 @@ extern NSNotificationName const FlutterViewControllerWillDealloc;
              screen:(UIScreen*)screen
           viewFrame:(CGRect)viewFrame
      convertedFrame:(CGRect)convertedFrame {
-  OCMStub([viewControllerMock screenIfViewLoaded]).andReturn(screen);
+  OCMStub([viewControllerMock flutterScreenIfViewLoaded]).andReturn(screen);
   id mockView = OCMClassMock([UIView class]);
   OCMStub([mockView frame]).andReturn(viewFrame);
   OCMStub([mockView convertRect:viewFrame toCoordinateSpace:[OCMArg any]])
@@ -680,7 +683,7 @@ extern NSNotificationName const FlutterViewControllerWillDealloc;
                                                                                  bundle:nil];
   FlutterViewController* viewControllerMock = OCMPartialMock(viewController);
   UIScreen* screen = [self setUpMockScreen];
-  OCMStub([viewControllerMock screenIfViewLoaded]).andReturn(screen);
+  OCMStub([viewControllerMock flutterScreenIfViewLoaded]).andReturn(screen);
 
   CGFloat screenWidth = screen.bounds.size.width;
   CGFloat screenHeight = screen.bounds.size.height;
@@ -943,7 +946,7 @@ extern NSNotificationName const FlutterViewControllerWillDealloc;
                                                                                  bundle:nil];
   FlutterViewController* viewControllerMock = OCMPartialMock(viewController);
   UIScreen* screen = [self setUpMockScreen];
-  OCMStub([viewControllerMock screenIfViewLoaded]).andReturn(screen);
+  OCMStub([viewControllerMock flutterScreenIfViewLoaded]).andReturn(screen);
   mockEngine.viewController = viewController;
 
   id mockCoordinator = OCMProtocolMock(@protocol(UIViewControllerTransitionCoordinator));
@@ -965,7 +968,7 @@ extern NSNotificationName const FlutterViewControllerWillDealloc;
                                                                                  bundle:nil];
   FlutterViewController* viewControllerMock = OCMPartialMock(viewController);
   UIScreen* screen = [self setUpMockScreen];
-  OCMStub([viewControllerMock screenIfViewLoaded]).andReturn(screen);
+  OCMStub([viewControllerMock flutterScreenIfViewLoaded]).andReturn(screen);
   mockEngine.viewController = viewController;
 
   // Mimic the device rotation with non-zero transition duration.
@@ -999,7 +1002,7 @@ extern NSNotificationName const FlutterViewControllerWillDealloc;
                                                                                  bundle:nil];
   FlutterViewController* viewControllerMock = OCMPartialMock(viewController);
   UIScreen* screen = [self setUpMockScreen];
-  OCMStub([viewControllerMock screenIfViewLoaded]).andReturn(screen);
+  OCMStub([viewControllerMock flutterScreenIfViewLoaded]).andReturn(screen);
   mockEngine.viewController = viewController;
 
   // Mimic the device rotation with zero transition duration.
@@ -1179,10 +1182,6 @@ extern NSNotificationName const FlutterViewControllerWillDealloc;
   // Setup test.
   id settingsChannel = OCMClassMock([FlutterBasicMessageChannel class]);
   OCMStub([self.mockEngine settingsChannel]).andReturn(settingsChannel);
-
-  FlutterViewController* realVC = [[FlutterViewController alloc] initWithEngine:self.mockEngine
-                                                                        nibName:nil
-                                                                         bundle:nil];
   id mockTraitCollection =
       [self fakeTraitCollectionWithUserInterfaceStyle:UIUserInterfaceStyleDark];
 
@@ -1190,7 +1189,9 @@ extern NSNotificationName const FlutterViewControllerWillDealloc;
   // the UITraitCollection of our choice. Mocking the object under test is not
   // desirable, but given that the OS does not offer a DI approach to providing
   // our own UITraitCollection, this seems to be the least bad option.
-  id partialMockVC = OCMPartialMock(realVC);
+  id partialMockVC = OCMPartialMock([[FlutterViewController alloc] initWithEngine:self.mockEngine
+                                                                          nibName:nil
+                                                                           bundle:nil]);
   OCMStub([partialMockVC traitCollection]).andReturn(mockTraitCollection);
 
   // Exercise behavior under test.
@@ -1283,16 +1284,15 @@ extern NSNotificationName const FlutterViewControllerWillDealloc;
   id settingsChannel = OCMClassMock([FlutterBasicMessageChannel class]);
   OCMStub([self.mockEngine settingsChannel]).andReturn(settingsChannel);
 
-  FlutterViewController* realVC = [[FlutterViewController alloc] initWithEngine:self.mockEngine
-                                                                        nibName:nil
-                                                                         bundle:nil];
   id mockTraitCollection = [self fakeTraitCollectionWithContrast:UIAccessibilityContrastHigh];
 
   // We partially mock the real FlutterViewController to act as the OS and report
   // the UITraitCollection of our choice. Mocking the object under test is not
   // desirable, but given that the OS does not offer a DI approach to providing
   // our own UITraitCollection, this seems to be the least bad option.
-  id partialMockVC = OCMPartialMock(realVC);
+  id partialMockVC = OCMPartialMock([[FlutterViewController alloc] initWithEngine:self.mockEngine
+                                                                          nibName:nil
+                                                                           bundle:nil]);
   OCMStub([partialMockVC traitCollection]).andReturn(mockTraitCollection);
 
   // Exercise behavior under test.
@@ -1512,7 +1512,7 @@ extern NSNotificationName const FlutterViewControllerWillDealloc;
     if (@available(iOS 16.0, *)) {
       mockWindowScene = OCMClassMock([UIWindowScene class]);
       mockVC = OCMPartialMock(realVC);
-      OCMStub([mockVC windowSceneIfViewLoaded]).andReturn(mockWindowScene);
+      OCMStub([mockVC flutterWindowSceneIfViewLoaded]).andReturn(mockWindowScene);
       if (realVC.supportedInterfaceOrientations == mask) {
         OCMReject([mockWindowScene requestGeometryUpdateWithPreferences:[OCMArg any]
                                                            errorHandler:[OCMArg any]]);
@@ -1540,7 +1540,7 @@ extern NSNotificationName const FlutterViewControllerWillDealloc;
       if (@available(iOS 13.0, *)) {
         mockWindowScene = OCMClassMock([UIWindowScene class]);
         mockVC = OCMPartialMock(realVC);
-        OCMStub([mockVC windowSceneIfViewLoaded]).andReturn(mockWindowScene);
+        OCMStub([mockVC flutterWindowSceneIfViewLoaded]).andReturn(mockWindowScene);
         OCMStub(((UIWindowScene*)mockWindowScene).interfaceOrientation)
             .andReturn(currentOrientation);
       } else {
@@ -1575,6 +1575,7 @@ extern NSNotificationName const FlutterViewControllerWillDealloc;
       [[XCTestExpectation alloc] initWithDescription:@"notification called"];
   id engine = [[MockEngine alloc] init];
   @autoreleasepool {
+    // NOLINTNEXTLINE(clang-analyzer-deadcode.DeadStores)
     FlutterViewController* realVC = [[FlutterViewController alloc] initWithEngine:engine
                                                                           nibName:nil
                                                                            bundle:nil];
@@ -1584,6 +1585,7 @@ extern NSNotificationName const FlutterViewControllerWillDealloc;
                                                   usingBlock:^(NSNotification* _Nonnull note) {
                                                     [expectation fulfill];
                                                   }];
+    XCTAssertNotNil(realVC);
     realVC = nil;
   }
   [self waitForExpectations:@[ expectation ] timeout:1.0];
@@ -1858,8 +1860,15 @@ extern NSNotificationName const FlutterViewControllerWillDealloc;
 #endif
   XCTAssertFalse(flutterViewController.isKeyboardInOrTransitioningFromBackground);
   OCMVerify([mockVC surfaceUpdated:YES]);
-  OCMVerify([mockVC goToApplicationLifecycle:@"AppLifecycleState.resumed"]);
-  [flutterViewController deregisterNotifications];
+  XCTestExpectation* timeoutApplicationLifeCycle =
+      [self expectationWithDescription:@"timeoutApplicationLifeCycle"];
+  dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1 * NSEC_PER_SEC)),
+                 dispatch_get_main_queue(), ^{
+                   [timeoutApplicationLifeCycle fulfill];
+                   OCMVerify([mockVC goToApplicationLifecycle:@"AppLifecycleState.resumed"]);
+                   [flutterViewController deregisterNotifications];
+                 });
+  [self waitForExpectationsWithTimeout:5.0 handler:nil];
 }
 
 - (void)testLifeCycleNotificationWillResignActive {
@@ -1973,6 +1982,38 @@ extern NSNotificationName const FlutterViewControllerWillDealloc;
 #endif
   OCMVerify([mockVC goToApplicationLifecycle:@"AppLifecycleState.inactive"]);
   [flutterViewController deregisterNotifications];
+}
+
+- (void)testLifeCycleNotificationCancelledInvalidResumed {
+  FlutterEngine* engine = [[FlutterEngine alloc] init];
+  [engine runWithEntrypoint:nil];
+  FlutterViewController* flutterViewController =
+      [[FlutterViewController alloc] initWithEngine:engine nibName:nil bundle:nil];
+  NSNotification* applicationDidBecomeActiveNotification =
+      [NSNotification notificationWithName:UIApplicationDidBecomeActiveNotification
+                                    object:nil
+                                  userInfo:nil];
+  NSNotification* applicationWillResignActiveNotification =
+      [NSNotification notificationWithName:UIApplicationWillResignActiveNotification
+                                    object:nil
+                                  userInfo:nil];
+  id mockVC = OCMPartialMock(flutterViewController);
+  [[NSNotificationCenter defaultCenter] postNotification:applicationDidBecomeActiveNotification];
+  [[NSNotificationCenter defaultCenter] postNotification:applicationWillResignActiveNotification];
+#if APPLICATION_EXTENSION_API_ONLY
+#else
+  OCMVerify([mockVC goToApplicationLifecycle:@"AppLifecycleState.inactive"]);
+#endif
+
+  XCTestExpectation* timeoutApplicationLifeCycle =
+      [self expectationWithDescription:@"timeoutApplicationLifeCycle"];
+  dispatch_after(dispatch_time(DISPATCH_TIME_NOW, (int64_t)(1 * NSEC_PER_SEC)),
+                 dispatch_get_main_queue(), ^{
+                   OCMReject([mockVC goToApplicationLifecycle:@"AppLifecycleState.resumed"]);
+                   [timeoutApplicationLifeCycle fulfill];
+                   [flutterViewController deregisterNotifications];
+                 });
+  [self waitForExpectationsWithTimeout:5.0 handler:nil];
 }
 
 @end
